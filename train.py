@@ -130,9 +130,10 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
                                 pin_memory=False, collate_fn=collate_fn)
 
         val_loss = 0.0
-        for i, batch in enumerate(val_loader):
-            x, y = model.parse_batch(batch)
-            y_pred = model(x)
+        for i, batch in enumerate(val_loader):            
+            x, y, embedding = model.parse_batch(batch)
+            embedding_tensor = Variable(torch.HalfTensor(embedding).cuda(),requires_grad=False)
+            y_pred = model(x, embedding_tensor)
             loss = criterion(y_pred, y)
             if distributed_run:
                 reduced_val_loss = reduce_tensor(loss.data, n_gpus).item()
