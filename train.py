@@ -216,8 +216,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             x, y, embedding = model.parse_batch(batch)
             embedding_tensor = Variable(torch.HalfTensor(embedding).cuda(),requires_grad=False)
             y_pred = model(x,embedding_tensor)
-            print('embedding_tensor:',embedding_tensor)
-            continue
+            #print('embedding_tensor:',embedding_tensor)            
             #TODO:embedding!!!            
             #x, y = model.parse_batch(batch)
             #y_pred = model(x)
