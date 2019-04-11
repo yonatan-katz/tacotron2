@@ -231,6 +231,11 @@ class Decoder(nn.Module):
         self.decoder_rnn = nn.LSTMCell(
             hparams.attention_rnn_dim + hparams.encoder_embedding_dim,
             hparams.decoder_rnn_dim, 1)
+        
+        #TODO:embedding!!!!!
+        self.embedd_decoder_rnn = nn.LSTMCell(
+            hparams.attention_rnn_dim + hparams.encoder_embedding_dim+hparams.speaker_embedding_dim,#+ embedding size!!!!!!
+            hparams.decoder_rnn_dim, 1)
 
         self.linear_projection = LinearNorm(
             hparams.decoder_rnn_dim + hparams.encoder_embedding_dim,
@@ -337,7 +342,9 @@ class Decoder(nn.Module):
 
         return mel_outputs, gate_outputs, alignments
 
-    def decode(self, decoder_input):
+    def decode(self, decoder_input, speaker_embedd):
+    #TODO:embedding
+    #def decode(self, decoder_input):
         """ Decoder step using stored states, attention and memory
         PARAMS
         ------
@@ -363,10 +370,20 @@ class Decoder(nn.Module):
             attention_weights_cat, self.mask)
 
         self.attention_weights_cum += self.attention_weights
-        decoder_input = torch.cat(
-            (self.attention_hidden, self.attention_context), -1)
-        self.decoder_hidden, self.decoder_cell = self.decoder_rnn(
-            decoder_input, (self.decoder_hidden, self.decoder_cell))
+        #################################################################################
+        ###################### Embedd Code!!!!!!
+        decoder_input = torch.cat(        
+            (self.attention_hidden, self.attention_context, torch.squeeze(speaker_embedd)), -1)
+        self.decoder_hidden, self.decoder_cell = self.embedd_decoder_rnn(
+            decoder_input, (self.decoder_hidden, self.decoder_cell))     
+        ##########################################################################################        
+        ###################### Orig Code!!!!!!
+        #decoder_input = torch.cat(
+        #    (self.attention_hidden, self.attention_context), -1)        
+        #self.decoder_hidden, self.decoder_cell = self.decoder_rnn(
+        #    decoder_input, (self.decoder_hidden, self.decoder_cell))
+        ##########################################################################################        
+        
         self.decoder_hidden = F.dropout(
             self.decoder_hidden, self.p_decoder_dropout, self.training)
 
@@ -378,7 +395,9 @@ class Decoder(nn.Module):
         gate_prediction = self.gate_layer(decoder_hidden_attention_context)
         return decoder_output, gate_prediction, self.attention_weights
 
-    def forward(self, memory, decoder_inputs, memory_lengths):
+    #TODO:embedding
+    #def forward(self, memory, decoder_inputs, memory_lengths):
+    def forward(self, memory, decoder_inputs, memory_lengths, speaker_embedd):
         """ Decoder forward pass for training
         PARAMS
         ------
@@ -405,7 +424,9 @@ class Decoder(nn.Module):
         while len(mel_outputs) < decoder_inputs.size(0) - 1:
             decoder_input = decoder_inputs[len(mel_outputs)]
             mel_output, gate_output, attention_weights = self.decode(
-                decoder_input)
+                decoder_input,speaker_embedd)
+                #TODO:embedding
+                #decoder_input)
             mel_outputs += [mel_output.squeeze(1)]
             gate_outputs += [gate_output.squeeze()]
             alignments += [attention_weights]
@@ -472,7 +493,7 @@ class Tacotron2(nn.Module):
 
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths = batch
+            output_lengths, output_embedding = batch
         text_padded = to_gpu(text_padded).long()
         input_lengths = to_gpu(input_lengths).long()
         max_len = torch.max(input_lengths.data).item()
@@ -482,7 +503,7 @@ class Tacotron2(nn.Module):
 
         return (
             (text_padded, input_lengths, mel_padded, max_len, output_lengths),
-            (mel_padded, gate_padded))
+            (mel_padded, gate_padded), output_embedding)
 
     def parse_output(self, outputs, output_lengths=None):
         if self.mask_padding and output_lengths is not None:
@@ -496,7 +517,7 @@ class Tacotron2(nn.Module):
 
         return outputs
 
-    def forward(self, inputs):
+    def forward(self, inputs, speaker_embedd):
         text_inputs, text_lengths, mels, max_len, output_lengths = inputs
         text_lengths, output_lengths = text_lengths.data, output_lengths.data
 
@@ -505,7 +526,8 @@ class Tacotron2(nn.Module):
         encoder_outputs = self.encoder(embedded_inputs, text_lengths)
 
         mel_outputs, gate_outputs, alignments = self.decoder(
-            encoder_outputs, mels, memory_lengths=text_lengths)
+            encoder_outputs, mels, memory_lengths=text_lengths,
+            speaker_embedd=speaker_embedd)
 
         mel_outputs_postnet = self.postnet(mel_outputs)
         mel_outputs_postnet = mel_outputs + mel_outputs_postnet

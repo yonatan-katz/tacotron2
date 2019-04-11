@@ -10,6 +10,7 @@ import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 
+from torch.autograd import Variable
 from model import Tacotron2
 from data_utils import TextMelLoader, TextMelCollate
 from loss_function import Tacotron2Loss
@@ -211,8 +212,15 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                 param_group['lr'] = learning_rate
 
             model.zero_grad()
-            x, y = model.parse_batch(batch)
-            y_pred = model(x)
+            
+            x, y, embedding = model.parse_batch(batch)
+            embedding_tensor = Variable(torch.HalfTensor(embedding).cuda(),requires_grad=False)
+            y_pred = model(x,embedding_tensor)
+            print('embedding_tensor:',embedding_tensor)
+            continue
+            #TODO:embedding!!!            
+            #x, y = model.parse_batch(batch)
+            #y_pred = model(x)
 
             loss = criterion(y_pred, y)
             if hparams.distributed_run:

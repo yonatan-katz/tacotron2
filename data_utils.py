@@ -3,6 +3,9 @@ import numpy as np
 import torch
 import torch.utils.data
 
+import pickle
+import glob
+import os
 import layers
 from utils import load_wav_to_torch, load_filepaths_and_text
 from text import text_to_sequence
@@ -26,13 +29,28 @@ class TextMelLoader(torch.utils.data.Dataset):
             hparams.mel_fmax)
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
+        self.embedding_map = self.load_embedding()
+        print('Load embedding for:',list(self.embedding_map.keys()))
+    
+    def load_embedding(self):
+        self.EMBED_FOLDER='/mnt/storage/datasets/TEDLIUM_release1/split'
+        #self.EMBED_FOLDER='/home/yonatan_katz_application/data/tedlium/split'
+        H = {}
+        for f in glob.glob(os.path.join(self.EMBED_FOLDER,'*.embed')):
+            embedding_name = f.split('/')[-1].split('.embed')[0]
+            e = pickle.load(open(f,'rb'))
+            H[embedding_name] = e
+        return H
 
     def get_mel_text_pair(self, audiopath_and_text):
         # separate filename and text
+        #TODO:embedding
         audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
+        embedding_name = audiopath.split('/')[-1].split('-')[0]
+        embedding = self.embedding_map[embedding_name]
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
-        return (text, mel)
+        return (text, mel, embedding)
 
     def get_mel(self, filename):
         if not self.load_mel_from_disk:
@@ -106,6 +124,10 @@ class TextMelCollate():
             mel_padded[i, :, :mel.size(1)] = mel
             gate_padded[i, mel.size(1)-1:] = 1
             output_lengths[i] = mel.size(1)
+        
+        output_embedding = []
+        for i in range(len(ids_sorted_decreasing)):
+            output_embedding.append(batch[ids_sorted_decreasing[i]][2])           
 
         return text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths
+            output_lengths,np.array(output_embedding)
