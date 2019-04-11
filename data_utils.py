@@ -33,8 +33,8 @@ class TextMelLoader(torch.utils.data.Dataset):
         print('Load embedding for:',list(self.embedding_map.keys()))
     
     def load_embedding(self):
-        self.EMBED_FOLDER='/mnt/storage/datasets/TEDLIUM_release1/split'
-        #self.EMBED_FOLDER='/home/yonatan_katz_application/data/tedlium/split'
+        #self.EMBED_FOLDER='/mnt/storage/datasets/TEDLIUM_release1/split'
+        self.EMBED_FOLDER='/home/yonatan_katz_application/data/tedlium/split'
         H = {}
         for f in glob.glob(os.path.join(self.EMBED_FOLDER,'*.embed')):
             embedding_name = f.split('/')[-1].split('.embed')[0]
