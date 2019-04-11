@@ -241,6 +241,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
                     model.parameters(), hparams.grad_clip_thresh)
 
             optimizer.step()
+            del embedding_tensor
 
             if not is_overflow and rank == 0:
                 duration = time.perf_counter() - start
